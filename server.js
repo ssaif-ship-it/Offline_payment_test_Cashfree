@@ -14,6 +14,10 @@ app.use(express.json({
     }
 }));
 app.use(cors());
+// A simple health-check route for your main URL
+app.get('/', (req, res) => {
+    res.send('✅ Cashfree Backend is up and running!');
+});
 
 const { CF_CLIENT_ID, CF_CLIENT_SECRET, CF_ENVIRONMENT, CF_API_VERSION, PORT } = process.env;
 
