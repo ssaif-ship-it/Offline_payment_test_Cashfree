@@ -1,3 +1,4 @@
+const path = require('path');
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -15,10 +16,10 @@ app.use(express.json({
 }));
 app.use(cors());
 // A simple health-check route for your main URL
+// Add this instead:
 app.get('/', (req, res) => {
-    res.send('✅ Cashfree Backend is up and running!');
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
-
 const { CF_CLIENT_ID, CF_CLIENT_SECRET, CF_ENVIRONMENT, CF_API_VERSION, PORT } = process.env;
 
 const cfHeaders = {
