@@ -1,26 +1,29 @@
-const path = require('path');
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const crypto = require('crypto');
 const QRCode = require('qrcode');
+const path = require('path');
 
 const app = express();
 
-// Middleware to capture raw payload for Webhook signature verification
+// Capture raw body buffer required for Cashfree HMAC signature verification
 app.use(express.json({
     verify: (req, res, buf) => {
         req.rawBody = buf.toString();
     }
 }));
 app.use(cors());
-// A simple health-check route for your main URL
-// Add this instead:
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
-});
-const { CF_CLIENT_ID, CF_CLIENT_SECRET, CF_ENVIRONMENT, CF_API_VERSION, PORT } = process.env;
+
+const { 
+    CF_CLIENT_ID, 
+    CF_CLIENT_SECRET, 
+    CF_WEBHOOK_SECRET, 
+    CF_ENVIRONMENT, 
+    CF_API_VERSION, 
+    PORT 
+} = process.env;
 
 const cfHeaders = {
     'x-client-id': CF_CLIENT_ID,
@@ -30,11 +33,17 @@ const cfHeaders = {
 };
 
 // ---------------------------------------------------------
-// REAL-TIME EVENTS (SSE) SETUP
+// 1. SERVE FRONTEND UI
+// ---------------------------------------------------------
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// ---------------------------------------------------------
+// 2. REAL-TIME SERVER-SENT EVENTS (SSE) FOR FRONTEND NOTIFICATION
 // ---------------------------------------------------------
 let connectedClients = [];
 
-// Frontend connects here to listen for webhook updates
 app.get('/api/events', (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
@@ -48,7 +57,6 @@ app.get('/api/events', (req, res) => {
     });
 });
 
-// Broadcast payment status to all connected frontend clients
 const notifyFrontend = (orderId, status) => {
     connectedClients.forEach(client => {
         client.write(`data: ${JSON.stringify({ orderId, status })}\n\n`);
@@ -56,7 +64,7 @@ const notifyFrontend = (orderId, status) => {
 };
 
 // ---------------------------------------------------------
-// 1. DYNAMIC QR API 
+// 3. DYNAMIC QR API
 // ---------------------------------------------------------
 app.post('/api/dynamic-qr', async (req, res) => {
     try {
@@ -65,7 +73,7 @@ app.post('/api/dynamic-qr', async (req, res) => {
 
         const orderPayload = {
             order_id: orderId,
-            order_amount: Number(amount), // Cast to Number to prevent 'api Request Failed'
+            order_amount: Number(amount), // Strictly cast to Number to prevent API type mismatch errors
             order_currency: 'INR',
             customer_details: {
                 customer_id: 'walk_in_customer',
@@ -91,7 +99,7 @@ app.post('/api/dynamic-qr', async (req, res) => {
 });
 
 // ---------------------------------------------------------
-// 2. SOFTPOS PUSH API
+// 4. SOFTPOS PUSH API
 // ---------------------------------------------------------
 app.post('/api/softpos', async (req, res) => {
     try {
@@ -100,7 +108,7 @@ app.post('/api/softpos', async (req, res) => {
 
         const orderPayload = {
             order_id: orderId,
-            order_amount: Number(amount), // Cast to Number to prevent 'api Request Failed'
+            order_amount: Number(amount),
             order_currency: 'INR',
             customer_details: {
                 customer_id: 'walk_in_customer',
@@ -130,18 +138,26 @@ app.post('/api/softpos', async (req, res) => {
 });
 
 // ---------------------------------------------------------
-// 3. STATIC QR API 
+// 5. STATIC QR API
 // ---------------------------------------------------------
 app.get('/api/static-qr/:phone', async (req, res) => {
     try {
         const { phone } = req.params;
         
-        // In Sandbox, fetching from Cashfree's terminal/qrcodes endpoint often fails
-        // due to incomplete KYC on test terminals. We generate a robust test QR directly.
-        // For production, you will use your assigned terminal VPA instead of 'success@upi'.
-        const vpa = 'success@upi'; 
+        const response = await axios.get(`${CF_ENVIRONMENT}/terminals?terminal_phone_no=${phone}`, { headers: cfHeaders });
         
-        const upiIntent = `upi://pay?pa=${vpa}&pn=Store_Terminal_${phone}&cu=INR`;
+        if (!response.data || response.data.length === 0) {
+            return res.status(404).json({ success: false, error: "Terminal not found in Cashfree records." });
+        }
+
+        const terminal = response.data[0];
+        const vpa = terminal.terminal_vpa;
+        
+        if (!vpa) {
+            return res.status(400).json({ success: false, error: "Terminal exists, but Cashfree has not assigned a VPA to it." });
+        }
+
+        const upiIntent = `upi://pay?pa=${vpa}&pn=${terminal.terminal_name || 'Store_Terminal'}&cu=INR`;
         const qrCodeBase64 = await QRCode.toDataURL(upiIntent);
         
         res.json({ success: true, qrCode: qrCodeBase64, vpa: vpa });
@@ -152,50 +168,51 @@ app.get('/api/static-qr/:phone', async (req, res) => {
 });
 
 // ---------------------------------------------------------
-// 4. BULLETPROOF WEBHOOK HANDLER
+// 6. BULLETPROOF WEBHOOK HANDLER
 // ---------------------------------------------------------
 app.post('/cashfree-webhook', (req, res) => {
-    const signature = req.headers['x-webhook-signature'];
-    const timestamp = req.headers['x-webhook-timestamp'];
-    const rawBody = req.rawBody || JSON.stringify(req.body);
-
     try {
-        // 1. Signature Verification (Only verify if Cashfree sent headers)
-        if (signature && timestamp && CF_CLIENT_SECRET) {
+        const signature = req.headers['x-webhook-signature'];
+        const timestamp = req.headers['x-webhook-timestamp'];
+        const rawBody = req.rawBody || JSON.stringify(req.body);
+
+        // Verify cryptographic signature if headers are provided
+        if (signature && timestamp) {
+            const secretKey = CF_WEBHOOK_SECRET || CF_CLIENT_SECRET;
+            
             const expectedSignature = crypto
-                .createHmac('sha256', CF_CLIENT_SECRET)
+                .createHmac('sha256', secretKey)
                 .update(timestamp + rawBody)
                 .digest('base64');
 
             if (expectedSignature !== signature) {
-                console.warn("⚠️ Webhook signature mismatch (ignoring if dashboard test ping).");
-            } else {
-                console.log("✅ Webhook Signature Verified!");
+                console.error("❌ Signature mismatch! Check your CF_WEBHOOK_SECRET setting.");
+                return res.status(403).send('Forbidden');
             }
+            console.log("✅ Webhook Signature Verified Successfully!");
         }
 
-        // 2. Parse Payload Safely
         const payload = JSON.parse(rawBody);
         
-        // Use Optional Chaining (?.) so dummy/test payloads won't crash the app
+        // Use optional chaining (?.) to prevent crashes on Cashfree test pings
         const orderId = payload?.data?.order?.order_id;
         const status = payload?.data?.payment?.payment_status;
 
         if (orderId && status === 'SUCCESS') {
-            console.log(`Order ${orderId} paid successfully!`);
+            console.log(`✅ Payment SUCCESS received for Order: ${orderId}`);
             notifyFrontend(orderId, 'SUCCESS');
         } else {
-            console.log("Received Webhook Event/Test:", payload?.type || "Test Ping");
+            console.log("ℹ️ Webhook Event Processed:", payload?.type || "Standard Ping");
         }
 
-        // 3. ALWAYS return 200 OK so Cashfree knows the endpoint is healthy
+        // Always return 200 OK so Cashfree considers the delivery successful
         return res.status(200).send('OK');
-
     } catch (error) {
-        console.error("Webhook handling error:", error.message);
-        // Return 200 OK even on format errors so Cashfree test button passes
+        console.error("Webhook processing error:", error.message);
         return res.status(200).send('OK');
     }
 });
 
-app.listen(PORT || 3000, () => console.log(`Server running on http://localhost:${PORT || 3000}`));
+app.listen(PORT || 3000, () => {
+    console.log(`Server running on port ${PORT || 3000}`);
+});
