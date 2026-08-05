@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Storefront | Cashfree Offline Payments</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 p-8 font-sans">
+    <div class="max-w-xl mx-auto bg-white rounded-xl shadow-md overflow-hidden relative">
+        
+        <!-- Tabs -->
+        <div class="flex border-b border-gray-200">
+            <button onclick="switchTab('dynamic')" class="flex-1 py-4 px-6 text-center text-sm font-medium text-blue-600 border-b-2 border-blue-600 focus:outline-none tab-btn" id="tab-dynamic">Dynamic QR</button>
+            <button onclick="switchTab('softpos')" class="flex-1 py-4 px-6 text-center text-sm font-medium text-gray-500 hover:text-gray-700 focus:outline-none tab-btn" id="tab-softpos">Agent SoftPOS</button>
+            <button onclick="switchTab('static')" class="flex-1 py-4 px-6 text-center text-sm font-medium text-gray-500 hover:text-gray-700 focus:outline-none tab-btn" id="tab-static">Static QR</button>
+        </div>
+
+        <div class="p-6">
+            <!-- Dynamic QR Flow -->
+            <div id="flow-dynamic" class="flow-content block">
+                <h2 class="text-xl font-bold mb-4">Generate Dynamic QR</h2>
+                <div class="space-y-4">
+                    <input type="number" id="dyn-amount" placeholder="Amount (INR)" class="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500">
+                    <button onclick="generateDynamicQR()" class="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition">Generate & Display</button>
+                    <div id="dyn-result" class="hidden mt-4 text-center">
+                        <p class="text-sm text-gray-500 mb-2">Scan with any UPI App</p>
+                        <img id="dyn-img" src="" alt="Dynamic QR" class="mx-auto w-48 h-48 border rounded-md">
+                    </div>
+                </div>
+            </div>
+
+            <!-- SoftPOS Flow -->
+            <div id="flow-softpos" class="flow-content hidden">
+                <h2 class="text-xl font-bold mb-4">Push to SoftPOS App</h2>
+                <div class="space-y-4">
+                    <input type="number" id="pos-amount" placeholder="Amount (INR)" class="w-full px-4 py-2 border rounded-md">
+                    <input type="text" id="pos-phone" placeholder="Agent Phone Number" class="w-full px-4 py-2 border rounded-md">
+                    <button onclick="pushToSoftPOS()" class="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition">Send to Device</button>
+                    <div id="pos-status" class="mt-4 text-center text-sm font-medium text-blue-600"></div>
+                </div>
+            </div>
+
+            <!-- Static QR Flow -->
+            <div id="flow-static" class="flow-content hidden">
+                <h2 class="text-xl font-bold mb-4">Store Static QR</h2>
+                <div class="space-y-4">
+                    <input type="text" id="static-phone" placeholder="Terminal Phone Number" class="w-full px-4 py-2 border rounded-md">
+                    <button onclick="fetchStaticQR()" class="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition">Fetch Store QR</button>
+                    <div id="static-result" class="hidden mt-4 text-center">
+                        <p id="static-vpa" class="text-sm text-gray-500 mb-2 font-mono"></p>
+                        <img id="static-img" src="" alt="Static QR" class="mx-auto w-48 h-48 border rounded-md">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Success Modal -->
+    <div id="success-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 transition-opacity">
+        <div class="bg-white p-8 rounded-xl shadow-2xl text-center max-w-sm w-full transform transition-transform scale-100">
+            <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-6">
+                <svg class="h-10 w-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+            </div>
+            <h3 class="text-2xl font-extrabold text-gray-900 mb-2">Payment Received!</h3>
+            <p class="text-gray-500 mb-1">Order ID:</p>
+            <p id="success-order-id" class="text-sm font-mono text-gray-700 bg-gray-100 py-1 px-2 rounded mb-6"></p>
+            <button onclick="closeSuccessModal()" class="w-full bg-green-600 text-white py-2 rounded-md hover:bg-green-700 transition">
+                Done
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000/api';
+
+        // Listen for real-time Webhook events from the Node server
+        const eventSource = new EventSource(`${API_URL}/events`);
+
+        eventSource.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            if (data.status === 'SUCCESS') {
+                showSuccessModal(data.orderId);
+            }
+        };
+
+        function showSuccessModal(orderId) {
+            const modal = document.getElementById('success-modal');
+            document.getElementById('success-order-id').innerText = orderId;
+            modal.classList.remove('hidden');
+        }
+
+        function closeSuccessModal() {
+            document.getElementById('success-modal').classList.add('hidden');
+            document.getElementById('dyn-result').classList.add('hidden');
+            document.getElementById('pos-status').innerText = "";
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.flow-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
+                el.classList.add('text-gray-500');
+            });
+            
+            document.getElementById(`flow-${tabId}`).classList.remove('hidden');
+            const activeTab = document.getElementById(`tab-${tabId}`);
+            activeTab.classList.remove('text-gray-500');
+            activeTab.classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
+        }
+
+        async function generateDynamicQR() {
+            const amount = document.getElementById('dyn-amount').value;
+            if(!amount) return alert('Enter amount');
+            
+            try {
+                const res = await fetch(`${API_URL}/dynamic-qr`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ amount })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    document.getElementById('dyn-img').src = data.qrCode;
+                    document.getElementById('dyn-result').classList.remove('hidden');
+                } else { alert(data.error); }
+            } catch (err) { console.error(err); alert("Failed to connect to backend"); }
+        }
+
+        async function pushToSoftPOS() {
+            const amount = document.getElementById('pos-amount').value;
+            const terminalPhone = document.getElementById('pos-phone').value;
+            if(!amount || !terminalPhone) return alert('Enter both amount and agent phone');
+            
+            const statusEl = document.getElementById('pos-status');
+            statusEl.innerText = "Pushing to agent device...";
+            
+            try {
+                const res = await fetch(`${API_URL}/softpos`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ amount, terminalPhone })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    statusEl.innerText = "Payment request pushed! Waiting for payment on agent device...";
+                } else { statusEl.innerText = "Failed: " + data.error; }
+            } catch (err) { console.error(err); statusEl.innerText = "Failed to connect to backend"; }
+        }
+
+        async function fetchStaticQR() {
+            const phone = document.getElementById('static-phone').value;
+            if(!phone) return alert('Enter Terminal Phone Number');
+            
+            try {
+                const res = await fetch(`${API_URL}/static-qr/${phone}`);
+                const data = await res.json();
+                
+                if (data.success) {
+                    document.getElementById('static-vpa').innerText = `VPA: ${data.vpa}`;
+                    document.getElementById('static-img').src = data.qrCode;
+                    document.getElementById('static-result').classList.remove('hidden');
+                } else { alert(data.error); }
+            } catch (err) { console.error(err); alert("Failed to connect to backend"); }
+        }
+    </script>
+</body>
+</html>
