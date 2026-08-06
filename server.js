@@ -187,6 +187,10 @@ app.post('/cashfree-webhook', (req, res) => {
 
             if (expectedSignature !== signature) {
                 console.error("❌ Signature mismatch! Check your CF_WEBHOOK_SECRET setting.");
+                console.error(`   using secret source: ${CF_WEBHOOK_SECRET ? 'CF_WEBHOOK_SECRET' : 'CF_CLIENT_SECRET'} (length ${secretKey ? secretKey.length : 0})`);
+                console.error(`   timestamp: ${timestamp}`);
+                console.error(`   expected:  ${expectedSignature}`);
+                console.error(`   received:  ${signature}`);
                 return res.status(403).send('Forbidden');
             }
             console.log("✅ Webhook Signature Verified Successfully!");
