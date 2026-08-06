@@ -3,81 +3,208 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Storefront | Cashfree Offline Payments</title>
+    <title>Merchant Pro POS | Cashfree Payments</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            850: '#151e2e',
+                            900: '#0f172a',
+                            950: '#020617',
+                        },
+                        brand: {
+                            500: '#10b981', // Emerald for payments
+                            600: '#059669',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
 </head>
-<body class="bg-gray-50 p-8 font-sans">
-    <div class="max-w-xl mx-auto bg-white rounded-xl shadow-md overflow-hidden relative">
+<body class="bg-slate-950 text-slate-200 font-sans min-h-screen p-4 md:p-8">
+
+    <!-- Header -->
+    <header class="max-w-6xl mx-auto mb-8 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-brand-500 rounded-lg flex items-center justify-center shadow-lg shadow-brand-500/20">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold tracking-tight text-white">Merchant Pro</h1>
+                <p class="text-sm text-slate-400">Cashfree Offline POS Terminal</p>
+            </div>
+        </div>
+        <div class="text-right hidden sm:block">
+            <p class="text-sm text-slate-400">Terminal ID: <span class="font-mono text-slate-300">TRM-8924</span></p>
+            <p class="text-sm text-brand-500 font-medium">Status: Online</p>
+        </div>
+    </header>
+
+    <div class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        <!-- Navigation Tabs -->
-        <div class="flex border-b border-gray-200">
-            <button onclick="switchTab('dynamic')" class="flex-1 py-4 px-6 text-center text-sm font-medium text-blue-600 border-b-2 border-blue-600 focus:outline-none tab-btn" id="tab-dynamic">Dynamic QR</button>
-            <button onclick="switchTab('softpos')" class="flex-1 py-4 px-6 text-center text-sm font-medium text-gray-500 hover:text-gray-700 focus:outline-none tab-btn" id="tab-softpos">Agent SoftPOS</button>
-            <button onclick="switchTab('static')" class="flex-1 py-4 px-6 text-center text-sm font-medium text-gray-500 hover:text-gray-700 focus:outline-none tab-btn" id="tab-static">Static QR</button>
+        <!-- Left Column: Order Details -->
+        <div class="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+            <h2 class="text-lg font-semibold text-white mb-6 border-b border-slate-800 pb-3">Order Details</h2>
+            
+            <div class="space-y-5">
+                <!-- Required Amount -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-400 mb-2">Total Amount (INR) <span class="text-red-400">*</span></label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400 text-lg font-medium">₹</span>
+                        <input type="number" id="order-amount" placeholder="0.00" class="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-700 rounded-xl text-2xl text-white font-semibold focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all outline-none placeholder-slate-700">
+                    </div>
+                </div>
+
+                <!-- Optional Fields for Storefront -->
+                <div class="pt-4 border-t border-slate-800/50 space-y-4">
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Customer Information (Optional)</p>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-slate-400 mb-1">Customer Name</label>
+                        <input type="text" placeholder="e.g. Jane Doe" class="w-full px-4 py-2.5 bg-slate-850 border border-slate-700 rounded-lg text-slate-200 focus:ring-2 focus:ring-brand-500 outline-none transition">
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-400 mb-1">Phone Number</label>
+                            <input type="tel" placeholder="+91" class="w-full px-4 py-2.5 bg-slate-850 border border-slate-700 rounded-lg text-slate-200 focus:ring-2 focus:ring-brand-500 outline-none transition">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-400 mb-1">Receipt Email</label>
+                            <input type="email" placeholder="jane@example.com" class="w-full px-4 py-2.5 bg-slate-850 border border-slate-700 rounded-lg text-slate-200 focus:ring-2 focus:ring-brand-500 outline-none transition">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-400 mb-1">Order Notes / Bill Ref</label>
+                        <textarea rows="2" placeholder="Table 4, Invoice #102..." class="w-full px-4 py-2 bg-slate-850 border border-slate-700 rounded-lg text-slate-200 focus:ring-2 focus:ring-brand-500 outline-none transition resize-none"></textarea>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div class="p-6">
-            <!-- Dynamic QR Flow -->
-            <div id="flow-dynamic" class="flow-content block">
-                <h2 class="text-xl font-bold mb-4">Generate Dynamic QR</h2>
-                <div class="space-y-4">
-                    <input type="number" id="dyn-amount" placeholder="Amount (INR)" class="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500">
-                    <button onclick="generateDynamicQR()" class="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition">Generate & Display</button>
-                    <div id="dyn-result" class="hidden mt-4 text-center">
-                        <p class="text-sm text-gray-500 mb-2">Scan with any UPI App</p>
-                        <img id="dyn-img" src="" alt="Dynamic QR" class="mx-auto w-48 h-48 border rounded-md">
-                    </div>
-                </div>
+        <!-- Right Column: Payment Methods -->
+        <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl flex flex-col">
+            
+            <!-- Custom Tabs -->
+            <div class="flex p-2 gap-2 border-b border-slate-800 bg-slate-900/50 rounded-t-2xl">
+                <button onclick="switchTab('dynamic')" id="tab-dynamic" class="flex-1 py-3 px-4 text-sm font-semibold rounded-xl bg-slate-800 text-brand-500 shadow-sm transition-all tab-btn">
+                    Dynamic QR
+                </button>
+                <button onclick="switchTab('softpos')" id="tab-softpos" class="flex-1 py-3 px-4 text-sm font-semibold rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all tab-btn">
+                    Agent SoftPOS
+                </button>
+                <button onclick="switchTab('static')" id="tab-static" class="flex-1 py-3 px-4 text-sm font-semibold rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all tab-btn">
+                    Static QR Store
+                </button>
             </div>
 
-            <!-- SoftPOS Flow -->
-            <div id="flow-softpos" class="flow-content hidden">
-                <h2 class="text-xl font-bold mb-4">Push to SoftPOS App</h2>
-                <div class="space-y-4">
-                    <input type="number" id="pos-amount" placeholder="Amount (INR)" class="w-full px-4 py-2 border rounded-md">
-                    <input type="text" id="pos-phone" placeholder="Agent Phone Number" class="w-full px-4 py-2 border rounded-md">
-                    <button onclick="pushToSoftPOS()" class="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition">Send to Device</button>
-                    <div id="pos-status" class="mt-4 text-center text-sm font-medium text-blue-600"></div>
-                </div>
-            </div>
-
-            <!-- Static QR Flow -->
-            <div id="flow-static" class="flow-content hidden">
-                <h2 class="text-xl font-bold mb-4">Store Static QR</h2>
-                <div class="space-y-4">
-                    <input type="text" id="static-phone" placeholder="Terminal Phone Number" class="w-full px-4 py-2 border rounded-md">
-                    <button onclick="fetchStaticQR()" class="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition">Fetch Store QR</button>
-                    <div id="static-result" class="hidden mt-4 text-center">
-                        <p id="static-vpa" class="text-sm text-gray-500 mb-2 font-mono"></p>
-                        <img id="static-img" src="" alt="Static QR" class="mx-auto w-48 h-48 border rounded-md">
+            <!-- Tab Content Area -->
+            <div class="p-8 flex-1 flex flex-col justify-center">
+                
+                <!-- Dynamic QR Flow -->
+                <div id="flow-dynamic" class="flow-content block text-center max-w-md mx-auto w-full">
+                    <div class="mb-6">
+                        <h2 class="text-xl font-bold text-white mb-2">Generate Dynamic QR</h2>
+                        <p class="text-sm text-slate-400">Creates a unique QR code pre-filled with the exact order amount. Highly recommended for accurate reconciliation.</p>
+                    </div>
+                    
+                    <button onclick="generateDynamicQR()" class="w-full bg-brand-500 text-white font-semibold py-3.5 rounded-xl hover:bg-brand-600 shadow-lg shadow-brand-500/20 transition transform hover:-translate-y-0.5">
+                        Generate QR Code
+                    </button>
+                    
+                    <div id="dyn-result" class="hidden mt-8">
+                        <div class="bg-white p-4 rounded-2xl inline-block shadow-lg mx-auto mb-4">
+                            <!-- White background ensures scannability for dark mode -->
+                            <img id="dyn-img" src="" alt="Dynamic QR" class="w-48 h-48 object-contain">
+                        </div>
+                        <p class="text-sm font-medium text-slate-300">Scan using GPay, PhonePe, or Paytm</p>
+                        <p class="text-xs text-slate-500 mt-1 flex items-center justify-center gap-1">
+                            <span class="w-2 h-2 rounded-full bg-brand-500 animate-pulse"></span> Awaiting Payment...
+                        </p>
                     </div>
                 </div>
+
+                <!-- SoftPOS Flow -->
+                <div id="flow-softpos" class="flow-content hidden max-w-md mx-auto w-full">
+                    <div class="mb-6 text-center">
+                        <h2 class="text-xl font-bold text-white mb-2">Push to Agent Device</h2>
+                        <p class="text-sm text-slate-400">Send this payment request directly to a delivery agent or floor staff's SoftPOS application.</p>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-400 mb-1">Agent Phone Number</label>
+                            <input type="text" id="pos-phone" placeholder="+91 XXXXX XXXXX" class="w-full px-4 py-3 bg-slate-950 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-brand-500 outline-none transition">
+                        </div>
+                        
+                        <button onclick="pushToSoftPOS()" class="w-full bg-brand-500 text-white font-semibold py-3.5 rounded-xl hover:bg-brand-600 shadow-lg shadow-brand-500/20 transition transform hover:-translate-y-0.5 mt-2">
+                            Send Request to Device
+                        </button>
+                        
+                        <div id="pos-status" class="mt-6 text-center text-sm font-medium text-brand-500 bg-brand-500/10 py-3 rounded-lg hidden"></div>
+                    </div>
+                </div>
+
+                <!-- Static QR Flow -->
+                <div id="flow-static" class="flow-content hidden max-w-md mx-auto w-full text-center">
+                    <div class="mb-6">
+                        <h2 class="text-xl font-bold text-white mb-2">Terminal Static QR</h2>
+                        <p class="text-sm text-slate-400">Display the fixed store QR code. The customer must manually enter the amount.</p>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <input type="text" id="static-phone" placeholder="Registered Terminal Phone" class="w-full px-4 py-3 bg-slate-950 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-brand-500 outline-none transition text-center">
+                        
+                        <button onclick="fetchStaticQR()" class="w-full bg-slate-700 text-white font-semibold py-3.5 rounded-xl hover:bg-slate-600 transition">
+                            Load Display QR
+                        </button>
+                        
+                        <div id="static-result" class="hidden mt-8">
+                            <div class="bg-white p-4 rounded-2xl inline-block shadow-lg mx-auto mb-4">
+                                <img id="static-img" src="" alt="Static QR" class="w-48 h-48 object-contain">
+                            </div>
+                            <p class="text-sm text-slate-400 mb-1">UPI ID / VPA</p>
+                            <p id="static-vpa" class="text-base font-mono text-slate-200 bg-slate-800 py-2 px-4 rounded-lg inline-block"></p>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>
 
     <!-- Payment Success Modal -->
-    <div id="success-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white p-8 rounded-xl shadow-2xl text-center max-w-sm w-full">
-            <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-6">
-                <svg class="h-10 w-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+    <div id="success-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 transition-opacity">
+        <div class="bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl text-center max-w-sm w-full transform scale-100 transition-transform">
+            <div class="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-brand-500/20 mb-6 relative">
+                <div class="absolute inset-0 rounded-full border-4 border-brand-500/30 animate-ping"></div>
+                <svg class="h-10 w-10 text-brand-500 relative z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
                 </svg>
             </div>
-            <h3 class="text-2xl font-extrabold text-gray-900 mb-2">Payment Received!</h3>
-            <p class="text-gray-500 mb-1">Order ID:</p>
-            <p id="success-order-id" class="text-sm font-mono text-gray-700 bg-gray-100 py-1 px-2 rounded mb-6"></p>
-            <button onclick="closeSuccessModal()" class="w-full bg-green-600 text-white py-2 rounded-md hover:bg-green-700 transition">
-                Done
+            <h3 class="text-2xl font-bold text-white mb-2">Payment Successful!</h3>
+            <p class="text-slate-400 mb-4 text-sm">The transaction has been verified.</p>
+            
+            <div class="bg-slate-950 rounded-xl p-4 mb-6 border border-slate-800">
+                <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Reference ID</p>
+                <p id="success-order-id" class="text-sm font-mono text-slate-200"></p>
+            </div>
+            
+            <button onclick="closeSuccessModal()" class="w-full bg-brand-500 text-white font-semibold py-3 rounded-xl hover:bg-brand-600 transition">
+                New Transaction
             </button>
         </div>
     </div>
 
     <script>
-        // Relative API URL works seamlessly both locally and deployed on Render
         const API_URL = '/api';
-
-        // Connect to Server-Sent Events stream for real-time webhook broadcasts
         const eventSource = new EventSource(`${API_URL}/events`);
 
         eventSource.onmessage = function(event) {
@@ -90,30 +217,45 @@
         function showSuccessModal(orderId) {
             document.getElementById('success-order-id').innerText = orderId;
             document.getElementById('success-modal').classList.remove('hidden');
+            
+            // Optional: Play a tiny success chime here if desired
         }
 
         function closeSuccessModal() {
             document.getElementById('success-modal').classList.add('hidden');
             document.getElementById('dyn-result').classList.add('hidden');
-            document.getElementById('pos-status').innerText = "";
+            document.getElementById('pos-status').classList.add('hidden');
+            
+            // Reset central amount field for next order
+            document.getElementById('order-amount').value = '';
         }
 
         function switchTab(tabId) {
+            // Hide all contents
             document.querySelectorAll('.flow-content').forEach(el => el.classList.add('hidden'));
+            
+            // Reset tab styles
             document.querySelectorAll('.tab-btn').forEach(el => {
-                el.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
-                el.classList.add('text-gray-500');
+                el.classList.remove('bg-slate-800', 'text-brand-500', 'shadow-sm');
+                el.classList.add('text-slate-400');
             });
             
+            // Show active content
             document.getElementById(`flow-${tabId}`).classList.remove('hidden');
+            
+            // Style active tab
             const activeTab = document.getElementById(`tab-${tabId}`);
-            activeTab.classList.remove('text-gray-500');
-            activeTab.classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
+            activeTab.classList.remove('text-slate-400');
+            activeTab.classList.add('bg-slate-800', 'text-brand-500', 'shadow-sm');
         }
 
         async function generateDynamicQR() {
-            const amount = document.getElementById('dyn-amount').value;
-            if(!amount) return alert('Please enter an amount');
+            const amount = document.getElementById('order-amount').value;
+            if(!amount || amount <= 0) {
+                alert('Please enter a valid order amount on the left panel.');
+                document.getElementById('order-amount').focus();
+                return;
+            }
             
             try {
                 const res = await fetch(`${API_URL}/dynamic-qr`, {
@@ -131,12 +273,19 @@
         }
 
         async function pushToSoftPOS() {
-            const amount = document.getElementById('pos-amount').value;
+            const amount = document.getElementById('order-amount').value;
             const terminalPhone = document.getElementById('pos-phone').value;
-            if(!amount || !terminalPhone) return alert('Please enter both amount and agent phone');
-            
             const statusEl = document.getElementById('pos-status');
-            statusEl.innerText = "Pushing request to agent device...";
+            
+            if(!amount || amount <= 0) {
+                alert('Please enter a valid order amount on the left panel.');
+                document.getElementById('order-amount').focus();
+                return;
+            }
+            if(!terminalPhone) return alert('Please enter the agent phone number.');
+            
+            statusEl.classList.remove('hidden');
+            statusEl.innerText = "Pushing request to device...";
             
             try {
                 const res = await fetch(`${API_URL}/softpos`, {
@@ -147,21 +296,24 @@
                 const data = await res.json();
                 
                 if (data.success) {
-                    statusEl.innerText = "Transaction pushed! Waiting for payment on agent device...";
+                    statusEl.innerText = "Request pushed! Awaiting agent confirmation...";
                 } else { statusEl.innerText = "Failed: " + data.error; }
-            } catch (err) { console.error(err); statusEl.innerText = "Failed to connect to backend"; }
+            } catch (err) { 
+                console.error(err); 
+                statusEl.innerText = "Failed to connect to backend"; 
+            }
         }
 
         async function fetchStaticQR() {
             const phone = document.getElementById('static-phone').value;
-            if(!phone) return alert('Please enter Terminal Phone Number');
+            if(!phone) return alert('Please enter the Registered Terminal Phone Number');
             
             try {
                 const res = await fetch(`${API_URL}/static-qr/${phone}`);
                 const data = await res.json();
                 
                 if (data.success) {
-                    document.getElementById('static-vpa').innerText = `Terminal VPA: ${data.vpa}`;
+                    document.getElementById('static-vpa').innerText = data.vpa;
                     document.getElementById('static-img').src = data.qrCode;
                     document.getElementById('static-result').classList.remove('hidden');
                 } else { alert(data.error); }
