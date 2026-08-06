@@ -43,6 +43,7 @@ app.get('/', (req, res) => {
 // 2. REAL-TIME SERVER-SENT EVENTS (SSE) FOR FRONTEND NOTIFICATION
 // ---------------------------------------------------------
 let connectedClients = [];
+const orderStatuses = new Map();
 
 app.get('/api/events', (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
@@ -63,10 +64,19 @@ app.get('/api/events', (req, res) => {
 });
 
 const notifyFrontend = (orderId, status) => {
-    connectedClients.forEach(client => {
-        client.write(`data: ${JSON.stringify({ orderId, status })}\n\n`);
+    connectedClients = connectedClients.filter(client => {
+        try {
+            client.write(`data: ${JSON.stringify({ orderId, status })}\n\n`);
+            return true;
+        } catch (err) {
+            return false;
+        }
     });
 };
+
+app.get('/api/order-status/:orderId', (req, res) => {
+    res.json({ status: orderStatuses.get(req.params.orderId) || 'PENDING' });
+});
 
 // ---------------------------------------------------------
 // 3. DYNAMIC QR API
@@ -135,7 +145,7 @@ app.post('/api/softpos', async (req, res) => {
 
         await axios.post(`${CF_ENVIRONMENT}/terminal/transactions`, transactionPayload, { headers: cfHeaders });
         
-        res.json({ success: true, message: "Transaction pushed to agent device successfully." });
+        res.json({ success: true, orderId, message: "Transaction pushed to agent device successfully." });
     } catch (error) {
         console.error("SoftPOS Error:", error.response?.data || error.message);
         res.status(500).json({ success: false, error: error.response?.data?.message || error.message });
@@ -209,6 +219,7 @@ app.post('/cashfree-webhook', (req, res) => {
 
         if (orderId && status === 'SUCCESS') {
             console.log(`✅ Payment SUCCESS received for Order: ${orderId}`);
+            orderStatuses.set(orderId, 'SUCCESS');
             notifyFrontend(orderId, 'SUCCESS');
         } else {
             console.log("ℹ️ Webhook Event Processed:", payload?.type || "Standard Ping");

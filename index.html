@@ -206,6 +206,7 @@
     <script>
         const API_URL = '/api';
         const eventSource = new EventSource(`${API_URL}/events`);
+        let statusPollInterval = null;
 
         eventSource.onmessage = function(event) {
             const data = JSON.parse(event.data);
@@ -214,10 +215,29 @@
             }
         };
 
+        eventSource.onerror = function(err) {
+            console.error('SSE connection error, browser will auto-reconnect:', err);
+        };
+
+        function watchOrderStatus(orderId) {
+            if (statusPollInterval) clearInterval(statusPollInterval);
+            statusPollInterval = setInterval(async () => {
+                try {
+                    const res = await fetch(`${API_URL}/order-status/${orderId}`);
+                    const data = await res.json();
+                    if (data.status === 'SUCCESS') {
+                        clearInterval(statusPollInterval);
+                        statusPollInterval = null;
+                        showSuccessModal(orderId);
+                    }
+                } catch (err) { console.error('Status poll failed:', err); }
+            }, 4000);
+        }
+
         function showSuccessModal(orderId) {
             document.getElementById('success-order-id').innerText = orderId;
             document.getElementById('success-modal').classList.remove('hidden');
-            
+
             // Optional: Play a tiny success chime here if desired
         }
 
@@ -225,7 +245,12 @@
             document.getElementById('success-modal').classList.add('hidden');
             document.getElementById('dyn-result').classList.add('hidden');
             document.getElementById('pos-status').classList.add('hidden');
-            
+
+            if (statusPollInterval) {
+                clearInterval(statusPollInterval);
+                statusPollInterval = null;
+            }
+
             // Reset central amount field for next order
             document.getElementById('order-amount').value = '';
         }
@@ -268,6 +293,7 @@
                 if (data.success) {
                     document.getElementById('dyn-img').src = data.qrCode;
                     document.getElementById('dyn-result').classList.remove('hidden');
+                    watchOrderStatus(data.orderId);
                 } else { alert(data.error); }
             } catch (err) { console.error(err); alert("Failed to connect to backend"); }
         }
@@ -297,6 +323,7 @@
                 
                 if (data.success) {
                     statusEl.innerText = "Request pushed! Awaiting agent confirmation...";
+                    watchOrderStatus(data.orderId);
                 } else { statusEl.innerText = "Failed: " + data.error; }
             } catch (err) { 
                 console.error(err); 
