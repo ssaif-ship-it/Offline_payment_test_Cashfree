@@ -48,11 +48,16 @@ app.get('/api/events', (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // stop Render's proxy from buffering the stream
     res.flushHeaders();
 
     connectedClients.push(res);
 
+    // Keep the connection alive through proxies that drop idle connections
+    const heartbeat = setInterval(() => res.write(': ping\n\n'), 20000);
+
     req.on('close', () => {
+        clearInterval(heartbeat);
         connectedClients = connectedClients.filter(client => client !== res);
     });
 });
