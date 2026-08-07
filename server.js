@@ -3,7 +3,6 @@ const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const crypto = require('crypto');
-const QRCode = require('qrcode');
 const path = require('path');
 
 const app = express();
@@ -158,24 +157,17 @@ app.post('/api/softpos', async (req, res) => {
 app.get('/api/static-qr/:phone', async (req, res) => {
     try {
         const { phone } = req.params;
-        
-        const response = await axios.get(`${CF_ENVIRONMENT}/terminals?terminal_phone_no=${phone}`, { headers: cfHeaders });
-        
+
+        const response = await axios.get(`${CF_ENVIRONMENT}/terminal/qrcodes?terminal_phone_no=${phone}`, { headers: cfHeaders });
+
         if (!response.data || response.data.length === 0) {
-            return res.status(404).json({ success: false, error: "Terminal not found in Cashfree records." });
+            return res.status(404).json({ success: false, error: "No static QR found for this terminal." });
         }
 
-        const terminal = response.data[0];
-        const vpa = terminal.terminal_vpa;
-        
-        if (!vpa) {
-            return res.status(400).json({ success: false, error: "Terminal exists, but Cashfree has not assigned a VPA to it." });
-        }
+        const qr = response.data.find(q => q.status === 'ACTIVE') || response.data[0];
+        const vpa = new URL(qr.qrCodeUrl.replace('upi://pay', 'https://pay')).searchParams.get('pa');
 
-        const upiIntent = `upi://pay?pa=${vpa}&pn=${terminal.terminal_name || 'Store_Terminal'}&cu=INR`;
-        const qrCodeBase64 = await QRCode.toDataURL(upiIntent);
-        
-        res.json({ success: true, qrCode: qrCodeBase64, vpa: vpa });
+        res.json({ success: true, qrCode: qr.qrCode, vpa: vpa });
     } catch (error) {
         console.error("Static QR Error:", error.response?.data || error.message);
         res.status(500).json({ success: false, error: error.response?.data?.message || error.message });
