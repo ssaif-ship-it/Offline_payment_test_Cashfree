@@ -138,7 +138,7 @@ app.post('/api/softpos', async (req, res) => {
 
         const transactionPayload = {
             cf_order_id: cfOrderId,
-            payment_method: "upi", 
+            payment_method: "QR_CODE",
             terminal_phone_no: terminalPhone
         };
 
@@ -165,6 +165,11 @@ app.get('/api/static-qr/:phone', async (req, res) => {
         }
 
         const qr = response.data.find(q => q.status === 'ACTIVE') || response.data[0];
+
+        if (!qr.qrCodeUrl) {
+            return res.status(400).json({ success: false, error: "Static QR is not configured for this terminal (missing QR URL). Enable static QR payment mode for this terminal in the Cashfree dashboard." });
+        }
+
         const vpa = new URL(qr.qrCodeUrl.replace('upi://pay', 'https://pay')).searchParams.get('pa');
 
         res.json({ success: true, qrCode: qr.qrCode, vpa: vpa });
